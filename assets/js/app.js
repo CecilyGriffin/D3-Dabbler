@@ -1,140 +1,111 @@
-// Set up scatter 
-var width = parseInt(d3.select("#scatter").style("width"));
-var height = width-width/3.9;
-var margin = 25;
-var labelArea = 100;
-var paddingLeft = 50;
-var paddingBottom= 50;
+var svgWidth = 960;
+var svgHeight = 500;
 
-// Create the actual canvas for the graph
-var svg = d3
-  .select("#scatter")
+var margin = {
+  top: 20,
+  right: 40,
+  bottom: 60,
+  left: 100
+};
+
+var width = svgWidth - margin.left - margin.right;
+var height = svgHeight - margin.top - margin.bottom;
+//Set up scatter 
+var svg = d3.select("#scatter")
   .append("svg")
-  .attr("width", width)
-  .attr("height", height)
-  .attr("class", "chart");
+  .attr("width", svgWidth)
+  .attr("height", svgHeight);
 
-var dotRadius = 10;
+var chartGroup = svg.append("g")
+  .attr("transform", `translate(${margin.left}, ${margin.top})`);
 
-// set up x axis 
-// We create a group element to nest our bottom axes labels.
-svg.append("g").attr("class", "xText");
-// xText will allows us to select the group without excess code.
-var xText = d3.select(".xText");
-xText
+d3.csv("assets/data/data.csv").then(function(Data) {
+  console.log(Data)
+
+    Data.forEach(function(data) {
+      data.age = +data.age;
+      data.smokes = +data.smokes;
+      data.abbr = data.abbr;
+    });
+
+    var xLinearScale = d3.scaleLinear()
+      .domain([30, d3.max(Data, d => d.age)])
+      .range([0, width]);
+
+    var yLinearScale = d3.scaleLinear()
+      .domain([8, d3.max(Data, d => d.smokes)])
+      .range([height, 0]);
+
+    var bottomAxis = d3.axisBottom(xLinearScale);
+    var leftAxis = d3.axisLeft(yLinearScale);
+
+    chartGroup.append("g")
+      .attr("transform", `translate(0, ${height})`)
+      .call(bottomAxis);
+
+    chartGroup.append("g")
+      .call(leftAxis);
+
+//circle
+    var circlesGroup = chartGroup.selectAll("circle")
+    .data(Data)
+    .enter()
+    .append("circle")
+    .attr("cx", d => xLinearScale(d.age))
+    .attr("cy", d => yLinearScale(d.smokes))
+    .attr("r", "10")
+    .attr("fill", "#98ceeb")
+    // .attr("opacity", ".5");
+
+    //circle text
+    var text = chartGroup.selectAll()
+    .data(Data)
+    .enter()
     .append("text")
-    .attr("y",0)
-    .attr("data-name","income")
-    .attr("data-axis","x")
-    .text("Household Income")
+    .attr("dx", d => xLinearScale(d.age))
+    .attr("dy", d => yLinearScale(d.smokes))
+    .text(d => (d.abbr))
+    .attr("fill", "white")
+    .attr("font-size", 8)
+    .style("text-anchor", "middle");
 
-// set up Y axis
-var leftTextX = margin + paddingLeft;
-var leftTextY = (height + labelArea) / 2 - labelArea;
-// We add a second label group, this time for the axis left of the chart.
-svg.append("g").attr("class", "yText");
-// yText will allows us to select the group without excess code.
-var yText = d3.select(".yText");
-yText
-    .append("text")
-    .attr("x",0)
-    .attr("data-name","obesity")
-    .attr("data-axis","x")
-    .text("Obesity %")
+    // y axis
+    chartGroup.append("text")
+      .attr("transform", "rotate(-90)")
+      .attr("y", 0 - margin.left + 40)
+      .attr("x", 0 - (height / 2))
+      .attr("dy", "1em")
+      .attr("class", "axisText")
+      .text("Smokes (%)")
+      .attr("font-weight", 900)
+      .attr("font-size", 20);
 
-// Import our CSV data with d3's .csv import method.
-d3.csv("assets/data/data.csv").then(function(data) {
-  // Visualize the data
-  visualize(data);
-});
-
-// Visualize function 
-function visualize(vdata){
-  var currentx = "income";
-  var currenty = "obesity";
-
-  var xmin;
-  var xmax;
-  var ymin;
-  var ymax;
-  // This function allows us to set up tooltip rules (see d3-tip.js).
-  var toolTip = d3
-  .tip()
-  .attr("class", "d3-tip")
-  .offset([40, -60])
-  .html(function(d) {
-    // x key
-    var theX;
-    // Grab the state name.
-    var theState = "<div>" + d.state + "</div>";
-    // Snatch the y value's key and value.
-    var theY = "<div>" + curY + ": " + d[curY] + "%</div>";
-    // If the x key is poverty
-    if (curX === "poverty") {
-      // Grab the x key and a version of the value formatted to show percentage
-      theX = "<div>" + curX + ": " + d[curX] + "%</div>";
-    }
-    else {
-      // Otherwise
-      // Grab the x key and a version of the value formatted to include commas after every third digit.
-      theX = "<div>" +
-        curX +
-        ": " +
-        parseFloat(d[curX]).toLocaleString("en") +
-        "</div>";
-    }
-    // Display what we capture.
-    return theState + theX + theY;
+      // x axis 
+    chartGroup.append("text")
+      .attr("transform", `translate(${width / 2}, ${height + margin.top + 30})`)
+      .attr("class", "axisText")
+      .text("Age(Median)")
+      .attr("font-weight", 900)
+      .attr("font-size", 20);
+  }).catch(function(error) {
+    console.log(error);
   });
-  // Call the toolTip function.
-  svg.call(toolTip);
 
-  // a. change the min and max for x
-  function xMinMax() {
-    // min will grab the smallest datum from the selected column.
-    xMin = d3.min(theData, function(d) {
-      return parseFloat(d[curX]) * 0.90;
-    });
-    // .max will grab the largest datum from the selected column.
-    xMax = d3.max(theData, function(d) {
-      return parseFloat(d[curX]) * 1.10;
-    });
-  }
-  // b. change the min and max for y
-  function yMinMax() {
-    // min will grab the smallest datum from the selected column.
-    yMin = d3.min(theData, function(d) {
-      return parseFloat(d[curY]) * 0.90;
-    });
-    // .max will grab the largest datum from the selected column.
-    yMax = d3.max(theData, function(d) {
-      return parseFloat(d[curY]) * 1.10;
-    });
-  }
-  // c. change the classes (and appearance) of label text when clicked.
-  function labelChange(axis, clickedText) {
-    // Switch the currently active to inactive.
-    d3
-      .selectAll(".aText")
-      .filter("." + axis)
-      .filter(".active")
-      .classed("active", false)
-      .classed("inactive", true);
-    // Switch the text just clicked to active.
-    clickedText.classed("inactive", false).classed("active", true);
-  }}
-  // set up scatter plot
-  xMinMax();
-  yMinMax();
-  var xScale = d3
-    .scaleLinear()
-    .domain([xMin, xMax])
-    .range([margin + labelArea, width - margin]);
-  var yScale = d3
-    .scaleLinear()
-    .domain([yMin, yMax])
-    // Height is inverses due to how d3 calc's y-axis placement
-    .range([height - margin - labelArea, margin]);
-  var xAxis = d3.axisBottom(xScale);
-  var yAxis = d3.axisLeft(yScale);
-});
+  //tooltip
+  var toolTip = d3.tip()
+  .attr("class", "tooltip")
+  .offset([80, -60])
+  .html(function(d) {
+    return (`${d.state}<br>Age (%): ${d.age}<br>Smokes(%): ${d.smokes}`);
+  });
+
+chartGroup.call(toolTip);
+
+//click
+chartGroup.on("click", function(data) {
+  toolTip.show(data, this);
+})
+  // onmouseout event
+  .on("mouseout", function(data, index) {
+    toolTip.hide(data);
+  });
